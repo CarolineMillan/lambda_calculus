@@ -78,7 +78,7 @@ filterVariables xs (y:ys) = filterVariables ( remove xs y ) ys
 
 --DONE AND WORKS
 fresh :: [Var] -> Var
-fresh xs = (filterVariables variables xs ) !! 0
+fresh xs = head (filterVariables variables xs)
 
 
 --DONE AND WORKS
@@ -120,9 +120,9 @@ substitute x n (Apply m1 m2) = Apply ( substitute x n m1) (substitute x n m2)
 
 
 beta :: Term -> [Term] 
-beta (Apply (Lambda x n) m) = [substitute x m n] ++ [ Apply (Lambda x n) i |i<-(beta m)] ++ [ Apply (Lambda x i) m | i<-(beta n)]
-beta (Lambda x n)           = [Lambda x i | i<-(beta n)] 
-beta (Apply n m)            = [Apply n i | i<-(beta m)] ++ [Apply i m | i<-(beta n)]
+beta (Apply (Lambda x n) m) = [substitute x m n] ++ [ Apply (Lambda x n) i |i<-beta m] ++ [ Apply (Lambda x i) m | i<-beta n]
+beta (Lambda x n)           = [Lambda x i | i<-beta n] 
+beta (Apply n m)            = [Apply n i | i<-beta m] ++ [Apply i m | i<-beta n]
 beta (Variable x)           = []
 
 
@@ -154,26 +154,26 @@ a_beta (Variable x)               = []
 
 
 --use this one for a_beta
-a_beta :: Term -> [Term] 
-a_beta (Apply (Lambda x n) m) = [ Apply (Lambda x n) i |i<-(a_beta m)] ++ [ Apply (Lambda x i) m | i<-(a_beta n)] ++ [substitute x m n]
-a_beta (Lambda x n)           = [Lambda x i | i<-(a_beta n)] 
-a_beta (Apply n m)            = [Apply n i | i<-(a_beta m)] ++ [Apply i m | i<-(a_beta n)]
-a_beta (Variable x)           = []
+aBeta :: Term -> [Term] 
+aBeta (Apply (Lambda x n) m) = [ Apply (Lambda x n) i |i<-aBeta m] ++ [ Apply (Lambda x i) m | i<-aBeta n] ++ [substitute x m n]
+aBeta (Lambda x n)           = [Lambda x i | i<-aBeta n] 
+aBeta (Apply n m)            = [Apply n i | i<-aBeta m] ++ [Apply i m | i<-aBeta n]
+aBeta (Variable x)           = []
 
 
 --DONE, COMPILES AND PASSED
 --think this one actually does LI reduction
-a_normalize :: Term -> IO () 
-a_normalize x = do
+aNormalize :: Term -> IO () 
+aNormalize x = do
     print x
     let b = beta x 
         l = length b
-        y = (beta x !! (l-1))
+        y = beta x !! (l-1)
     if l == 0
     then do 
         return () -- returns nothing
     else do
-        a_normalize y  --meant to return the last element in the list of beta reductions of x
+        aNormalize y  --meant to return the last element in the list of beta reductions of x
 
 
 -------------------------
@@ -213,47 +213,47 @@ term2 = Apply (Apply (Lambda "b" (Apply example (Variable "Yes"))) (Lambda "z" (
 --part b  DONE, COMPILES AND PASSED
 
 
-p_start :: Term -> PState
-p_start n = (n,[])
+pStart :: Term -> PState
+pStart n = (n,[])
 
 
-p_step :: PState -> PState
-p_step (Lambda x n, m:ms ) = (substitute x m n , ms )
-p_step (Apply n m , ms ) = ( n , m:ms ) --adds m to head of list ie top of stack
+pStep :: PState -> PState
+pStep (Lambda x n, m:ms ) = (substitute x m n , ms )
+pStep (Apply n m , ms ) = ( n , m:ms ) --adds m to head of list ie top of stack
 
 
-p_final :: PState -> Bool
-p_final (Lambda x n, [])   = True
-p_final (Variable x ,s)    = True
-p_final otherwise          = False
+pFinal :: PState -> Bool
+pFinal (Lambda x n, [])   = True
+pFinal (Variable x ,s)    = True
+pFinal _         = False
 
 
 
 --part c DONE, COMPILES AND PASSED
 
 
-p_run :: Term -> IO ()    
-p_run n = f (p_start n)
+pRun :: Term -> IO ()    
+pRun n = f (pStart n)
   where f m = do
               print m
-              if p_final m 
+              if pFinal m 
               then do 
-                print (p_readback m)
+                print (pReadback m)
                 return ()
               else do 
-                f (p_step m)
+                f (pStep m)
 
 
 
 --part d DONE, COMPILES AND PASSED
 
 
-p_readback :: PState -> Term
-p_readback (Lambda x n, s)  = Lambda x n 
-p_readback (Variable x , s) 
-    | (length s) ==0        = Variable x    
+pReadback :: PState -> Term
+pReadback (Lambda x n, s)  = Lambda x n 
+pReadback (Variable x , s) 
+    | null s      = Variable x    
     | otherwise             = Apply (Variable x) (head s)
-p_readback (Apply n m, s)   = n
+pReadback (Apply n m, s)   = n
 
 
 
@@ -290,12 +290,12 @@ prettystate (Quad term env state) ="[" ++ "(" ++ show term ++ "," ++ show env ++
 --change this for different cases 
 
 
-state2 = Quad (Apply (Lambda "x" (Variable "x")) (Variable "y")) (Triple ("y") (Lambda "z" (Variable "z")) (Star) (Star)) (Star2)
+state2 = Quad (Apply (Lambda "x" (Variable "x")) (Variable "y")) (Triple "y" (Lambda "z" (Variable "z")) Star Star) Star2
  
-state3 = Quad (Apply (Variable "x") (Variable "x")) (Triple ("x") (Apply (Lambda "x" (Variable "x")) (Variable "x")) (Star) (Star)) (Star2)
+state3 = Quad (Apply (Variable "x") (Variable "x")) (Triple "x" (Apply (Lambda "x" (Variable "x")) (Variable "x")) Star Star) Star2
 
 
-state4 =Quad (Lambda "y" (Variable "x")) (Star) (Quad (Variable "z") (Triple ("z") (Lambda "a" (Variable "b")) (Triple ("b") (Variable "c") (Star) (Star)) (Star) ) (Star2))
+state4 =Quad (Lambda "y" (Variable "x")) Star (Quad (Variable "z") (Triple "z" (Lambda "a" (Variable "b")) (Triple "b" (Variable "c") Star Star) Star ) Star2)
 
 
 --part b SQUARE BRACKETS WRONG IN TEST -PROBABLY A PROBLEM WITH PRETTY
@@ -304,21 +304,21 @@ state4 =Quad (Lambda "y" (Variable "x")) (Star) (Quad (Variable "z") (Triple ("z
 
 
 start :: Term -> State
-start n = Quad n (Star) (Star2)
+start n = Quad n Star Star2
 
 
 step :: State -> State
-step ( Quad (Variable var1) ( Triple (var2) (term) (env1) (env2) ) (state) )
-    | var1==var2   = ( Quad (term) (env1) (state) )
-    | otherwise    = ( Quad (Variable var1) (env2) (state) )
-step ( Quad (Lambda var term1) (env1) ( Quad (term2) (env2) (state) ) )    = ( Quad (term1) ( Triple (var) (term2) (env2) (env1) ) (state) )
-step ( Quad (Apply term1 term2) (env) (state) )                       = ( Quad (term1) (env) ( Quad (term2) (env) (state) ) )
+step ( Quad (Variable var1) ( Triple var2 term env1 env2 ) state )
+    | var1==var2   = Quad term env1 state
+    | otherwise    = Quad (Variable var1) env2 state 
+step ( Quad (Lambda var term1) env1 ( Quad term2 env2 state ) )    =  Quad term1 ( Triple var term2 env2 env1 ) state 
+step ( Quad (Apply term1 term2) env state )                       =  Quad term1 env ( Quad term2 env state ) 
 
 
 final :: State -> Bool
-final ( Quad (Lambda var term) (env) (Star2) )  = True
-final ( Quad (Variable x) (Star) (state))       = True
-final otherwise                                 = False
+final ( Quad (Lambda var term) env Star2)  = True
+final ( Quad (Variable x) Star state)       = True
+final _                                 = False
 
 
 --part c
@@ -343,14 +343,14 @@ run n = f (start n)
 
 
 readback :: State -> Term 
-readback (Quad (Variable x)(Star)(state)) = Variable x
-readback (Quad (Variable x)(Triple (y)(n)(e)(f))(state))
-    | x==y      = readback (Quad (n)(e)(state))
-    | otherwise = readback (Quad (Variable x)(f)(state))
-readback (Quad (Lambda x n)(e)(state))    = Lambda x (readback (Quad (n)(Triple (x)(Variable x)(Star)(e))(state))) --THIS LINE WRONG
-readback (Quad (Lambda x n)(Star)(state)) = Lambda x n
-readback (Quad (Apply n m)(e)(state)) = Apply (readback (Quad (n)(e)(state))) (readback (Quad (m)(e)(state))) --THIS LINE WRONG
-readback (Quad (Apply n m)(Star)(state))  = Apply n m
+readback (Quad (Variable x) Star state) = Variable x
+readback (Quad (Variable x)(Triple y n e f) state)
+    | x==y      = readback (Quad n e state)
+    | otherwise = readback (Quad (Variable x) f state)
+readback (Quad (Lambda x n) e state)    = Lambda x (readback (Quad n (Triple x (Variable x) Star e ) state)) --THIS LINE WRONG
+readback (Quad (Lambda x n) Star state) = Lambda x n
+readback (Quad (Apply n m) e state) = Apply (readback (Quad n e state)) (readback (Quad m e state)) --THIS LINE WRONG
+readback (Quad (Apply n m) Star state)  = Apply n m
 
 
 
