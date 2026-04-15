@@ -33,7 +33,7 @@ pretty = f 0
 
 ------------------------- Assignment 1        5%    DONE, COMPILED AND PASSED      
 
-
+-- recursively calculates Church numerals
 numeral :: Int -> Term
 numeral i = Lambda "f" (Lambda "x" (numeralprime i))
     where 
@@ -43,7 +43,7 @@ numeral i = Lambda "f" (Lambda "x" (numeralprime i))
 
 -------------------------
 
-
+-- merge sort
 merge :: Ord a => [a] -> [a] -> [a] 
 merge xs [] = xs
 merge [] ys = ys
@@ -57,6 +57,7 @@ merge (x:xs) (y:ys)
 -- DONE AND WORKS
 
 
+-- create an infinite list of variables by combining letters and numbers
 letters = ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"]
 numbers = map show [1..]
 
@@ -66,6 +67,7 @@ variables = letters ++ [ x ++ y |  y <- numbers , x <- letters]
 
 
 --DONE AND WORKS
+-- takes two lists of variables and returns the first list with all variables from the second removed from it
 filterVariables :: [Var] -> [Var] -> [Var]
 filterVariables xs []     = xs
 filterVariables xs (y:ys) = filterVariables ( remove xs y ) ys
@@ -77,21 +79,24 @@ filterVariables xs (y:ys) = filterVariables ( remove xs y ) ys
 
 
 --DONE AND WORKS
+-- given a list of variables, this returns a fresh variable that isn't in the list
 fresh :: [Var] -> Var
 fresh xs = head (filterVariables variables xs)
 
 
 --DONE AND WORKS
+-- collects all variable names used in a Term and returns them in an ordered list
 used :: Term -> [Var]
 used (Variable x) = [x]
-used (Lambda y z) =  merge [y] (used z) 
+used (Lambda y z) =  merge [y] (used z)
 used (Apply u v)  = merge (used u) (used v)
 
 
 ------------------------- Assignment 3      20% DONE, COMPILED AND PASSED 
-
+-- CAPTURE-AVOIDING SUBSITUTION
 
 --DONE AND WORKS
+-- renames all instances of x to y in Term and returns the new Term
 rename :: Var -> Var -> Term -> Term
 rename x y (Variable z) 
     | z==x      = Variable y
@@ -103,6 +108,7 @@ rename x y (Apply n m) = Apply(rename x y n) (rename x y m)
 
 
 -- DONE AND WORKS
+-- implements capture-avoiding substitution
 substitute :: Var -> Term -> Term -> Term
 substitute x n (Variable y)
     | y==x      = n
@@ -114,12 +120,13 @@ substitute x n (Apply m1 m2) = Apply ( substitute x n m1) (substitute x n m2)
 
 
 ------------------------- Assignment 4      25%
+-- BETA-REDUCTION
 
 --DONE AND WORKS
 --SHOULD BE DOING NORMAL ORDER REDUCTION (L.O.)
 
 
-beta :: Term -> [Term] 
+beta :: Term -> [Term]
 beta (Apply (Lambda x n) m) = [substitute x m n] ++ [ Apply (Lambda x n) i |i<-beta m] ++ [ Apply (Lambda x i) m | i<-beta n]
 beta (Lambda x n)           = [Lambda x i | i<-beta n] 
 beta (Apply n m)            = [Apply n i | i<-beta m] ++ [Apply i m | i<-beta n]
@@ -275,6 +282,8 @@ prettyenv (Triple var term env1 Star) = "[" ++ "(" ++ show var ++ "," ++ show te
 prettyenv (Triple var term env1 env2) = "[" ++ "(" ++ show var ++ "," ++ show term ++ "," ++ show env1 ++ ")" ++ "]" ++ show env2 
 
 
+data Closure = Term Env
+--data State = State Term Env [Closure]
 data State =  Quad Term Env State
            | Star2
 instance Show State where
@@ -348,6 +357,7 @@ readback (Quad (Variable x)(Triple y n e f) state)
     | x==y      = readback (Quad n e state)
     | otherwise = readback (Quad (Variable x) f state)
 readback (Quad (Lambda x n) e state)    = Lambda x (readback (Quad n (Triple x (Variable x) Star e ) state)) --THIS LINE WRONG
+--readback (Quad (Lambda x n) e state)    = Lambda x (readback (Quad n e state)) --THIS LINE WRONG
 readback (Quad (Lambda x n) Star state) = Lambda x n
 readback (Quad (Apply n m) e state) = Apply (readback (Quad n e state)) (readback (Quad m e state)) --THIS LINE WRONG
 readback (Quad (Apply n m) Star state)  = Apply n m
