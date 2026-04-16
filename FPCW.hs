@@ -264,8 +264,140 @@ pReadback (Apply n m, s)   = n
 
 
 
-------------------------- Assignment 6 (KAM)    25%  works, but the steps are a bit off with square brackets, think its my pretty thats wrong
+------------------------- Assignment 6 (KAM)    25%  works
 
+
+-- part a 
+data Env = EnvPair Var Closure Env
+        | EnvStar
+instance Show Env where
+         show = prettyenv
+
+--show Env as a list of Pairs
+prettyenv :: Env -> String
+prettyenv EnvStar = "[]"
+prettyenv (EnvPair var closure EnvStar) = "[" ++ "(" ++ show var ++ "," ++ show closure ++ ")" ++ "]"
+prettyenv (EnvPair var closure env) = "[" ++ "(" ++ show var ++ "," ++ show closure ++ ")," ++ init ( tail (show env)) ++ "]"
+
+data State = StatePair Closure Stack
+            | StateStar
+instance Show State where
+        show = prettystate
+
+prettystate :: State -> String
+prettystate StateStar = "[]"
+prettystate (StatePair closure stack) = "(" ++ show closure ++ "," ++ show stack ++ ")"
+
+data Closure = ClosurePair Term Env
+            | ClosureStar
+instance Show Closure where
+            show = prettyclosure
+
+prettyclosure :: Closure -> String
+prettyclosure ClosureStar = "[]"
+prettyclosure (ClosurePair term env) = show term ++ "," ++ show env
+
+data Stack = StackPair Closure Stack
+            | StackStar
+instance Show Stack where
+        show = prettystack
+
+prettystack :: Stack -> String
+prettystack StackStar = "[]"
+prettystack (StackPair closure StackStar) = "[(" ++ show closure ++ ")]"
+prettystack (StackPair closure stack) = "[(" ++ show closure ++ ")," ++ init (tail (show stack)) ++ "]"
+
+-- state2: ( (λx.x) y, (y,λz.z,⋆)·⋆, ⋆ )
+term2a = Apply (Lambda "x" (Variable "x")) (Variable "y")
+env2 = EnvPair "y" closure2 EnvStar
+closure2 = ClosurePair (Lambda "z" (Variable "z")) EnvStar
+state2 = StatePair (ClosurePair term2a env2) StackStar
+
+-- currently have: 
+-- ((\x. x) y,[("y",\z. z,[])],[])
+-- we want:
+-- ((\x. x) y,[("y",\z. z,[])],[])
+
+
+-- state3: ( xx, (x,λx.xx,⋆)·⋆, ⋆ )
+term3 = Apply (Variable "x") (Variable "x")
+env3 = EnvPair "x" closure3 EnvStar
+closure3 = ClosurePair (Lambda "x" (Apply (Variable "x") (Variable "x"))) EnvStar
+state3 = StatePair (ClosurePair term3 env3) StackStar
+
+-- currently have:
+-- (x x,[("x",\x. x x,[])],[])
+-- we want:
+-- (x x,[("x",\x. x x,[])],[])
+
+
+-- state4: ( λy.x, ⋆, (z, (z,λa.b,(b,c,⋆)·⋆)·⋆)·⋆)
+term4a = Lambda "y" (Variable "x")
+stack4a = StackPair (ClosurePair term4b env4b) StackStar
+term4b = Variable "z"
+env4b = EnvPair "z" closure4b EnvStar
+closure4b = ClosurePair (Lambda "a" (Variable "b")) env4c
+env4c = EnvPair "b" (ClosurePair (Variable "c") EnvStar) EnvStar
+state4 = StatePair (ClosurePair term4a EnvStar) stack4a
+
+-- currently have:
+-- (\y. x,[],[(z,[("z",\a. b,[("b",c,[])])])])
+-- we want:
+-- (\y. x,[],[(z,[("z",\a. b,[("b",c,[])])])])
+
+-- part b
+
+start :: Term -> State
+start n = StatePair (ClosurePair n EnvStar) StackStar
+
+
+step :: State -> State
+step (StatePair (ClosurePair (Variable var1) (EnvPair (var2) (ClosurePair term env1) env2)) stack)
+    | var1 == var2  = StatePair (ClosurePair term env1) stack
+    | otherwise     = StatePair (ClosurePair (Variable var1) env2) stack
+step (StatePair (ClosurePair (Lambda var term1) env1) (StackPair (ClosurePair term2 env2) stack))   = StatePair (ClosurePair term1 (EnvPair var (ClosurePair term2 env2) env1)) stack
+step (StatePair (ClosurePair (Apply term1 term2) env) stack)    = StatePair (ClosurePair term1 env) (StackPair (ClosurePair term2 env) stack)
+
+
+final :: State -> Bool
+final (StatePair (ClosurePair (Lambda var term) env) StackStar) = True
+final (StatePair (ClosurePair (Variable x) EnvStar) stack) = True
+final _     = False
+
+
+--part c
+
+
+run :: Term -> IO ()
+run n = f (start n)
+  where f m = do
+              print m
+              if final m 
+              then do 
+                print (readback m)
+                return ()
+              else do 
+                f (step m)
+-- part d 
+
+
+readback :: State -> Term 
+readback (StatePair closure (StackPair (ClosurePair n e) stack)) = Apply (readback (StatePair closure stack)) (readback (StatePair (ClosurePair n e) StackStar)) -- this line is new, trying to add in stack to readback, needs to be checked first so that StackStar is introduced if there is more on the stack
+readback (StatePair (ClosurePair (Variable x) EnvStar) stack) = Variable x
+readback (StatePair (ClosurePair (Variable x) (EnvPair y (ClosurePair n e) f)) stack)
+    | x==y      = readback (StatePair (ClosurePair n e) stack)
+    | otherwise = readback (StatePair (ClosurePair (Variable x) f) stack)
+readback (StatePair (ClosurePair (Lambda x n) EnvStar) stack)   = Lambda x n
+readback (StatePair (ClosurePair (Lambda x n) e) stack)     = Lambda x (readback (StatePair (ClosurePair n (EnvPair x (ClosurePair (Variable x) EnvStar) e)) stack))
+readback (StatePair (ClosurePair (Apply n m) EnvStar) stack)    = Apply n m
+readback (StatePair (ClosurePair (Apply n m) e) stack)  = Apply (readback (StatePair (ClosurePair n e) stack)) (readback (StatePair (ClosurePair m e) stack))
+
+
+
+
+
+
+{-
 
 --part a DONE AND COMPILES
 
@@ -363,4 +495,4 @@ readback (Quad (Apply n m) e state) = Apply (readback (Quad n e state)) (readbac
 readback (Quad (Apply n m) Star state)  = Apply n m
 
 
-
+-}

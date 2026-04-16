@@ -18,9 +18,9 @@ These machines are more practical and efficient reduction strategies than using 
 
 ## Notes
 
-This was written as Functional Programming coursework in 2019. The KAM ```readback``` function is incomplete. That's a known issue, parked for now.
+This was written as Functional Programming coursework in 2019. The KAM was incomplete. I returned to the project in 2026 and completed it.
 
-## Future Plans:
-- [ ] fix readback for KAM
+## Possible Future Plans:
+- [X] fix readback for KAM
 - [ ] add a repl
 - [ ] implement a CEK machine
