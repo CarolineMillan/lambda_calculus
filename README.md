@@ -47,7 +47,11 @@ The file contains examples ```state2```, ```state3``` and ```state4```.
 
 This was written as Functional Programming coursework in 2019. The KAM was incomplete. I returned to the project in 2026 and completed it.
 
+<!--
+
 ## Possible Future Plans:
 - [X] fix readback for KAM
 - [ ] add a repl
 - [ ] implement a CEK machine
+
+-->
