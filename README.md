@@ -18,10 +18,9 @@ These machines are more practical and efficient reduction strategies than using 
 
 ## How to run
 
-```
-ghci fpcw.hs
-```
-to run in the interactive repl.
+You will need [GHC](https://www.haskell.org/ghc/) to run [GHCi](https://downloads.haskell.org/ghc/latest/docs/users_guide/ghci.html)
+
+Use `ghci FPCW.hs` to run in the interactive repl.
 
 ```numeral <integer>``` returns the church encoding for ```<integer>```.
 
